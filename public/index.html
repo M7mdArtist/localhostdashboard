@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Localhost Dashboard</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      body {
+        background: #121212;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      header {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 40px;
+        background: #1e1e1e;
+      }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      /* Add Button (+) */
+      .add-btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        font-size: 24px;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .add-btn:hover {
+        background: #0056b3;
+      }
+
+      /* Toggle Edit Mode Button */
+      .toggle-edit-btn {
+        background: #333;
+        color: #fff;
+        border: 1px solid #555;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: 0.2s;
+      }
+      .toggle-edit-btn:hover {
+        background: #444;
+      }
+      .toggle-edit-btn.active {
+        background: #ffc107;
+        color: #000;
+        border-color: #ffc107;
+        font-weight: bold;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 650px;
+        margin-top: 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        padding: 0 20px;
+      }
+      .card {
+        background: #1e1e1e;
+        border: 1px solid #333;
+        padding: 15px 20px;
+        border-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .card-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .card-name {
+        font-weight: bold;
+        font-size: 18px;
+      }
+      .card-port {
+        color: #888;
+        font-size: 14px;
+        font-family: monospace;
+      }
+
+      .card-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .card-link {
+        color: #4da6ff;
+        text-decoration: none;
+        font-size: 14px;
+        margin-right: 10px;
+      }
+      .card-link:hover {
+        text-decoration: underline;
+      }
+
+      /* Edit/Delete buttons hidden by default */
+      .btn-edit,
+      .btn-delete {
+        display: none;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .btn-edit {
+        background: #ffc107;
+        color: #000;
+      }
+      .btn-delete {
+        background: #dc3545;
+        color: white;
+      }
+
+      /* Show edit/delete buttons only when container has edit-mode class */
+      .edit-mode .btn-edit,
+      .edit-mode .btn-delete {
+        display: inline-block;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        justify-content: center;
+        align-items: center;
+      }
+      .modal-content {
+        background: #222;
+        padding: 25px;
+        border-radius: 8px;
+        width: 340px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .modal-content input {
+        padding: 10px;
+        background: #333;
+        border: 1px solid #444;
+        color: #fff;
+        border-radius: 4px;
+      }
+      .modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 10px;
+      }
+      .modal-actions button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .btn-save {
+        background: #28a745;
+        color: white;
+      }
+      .btn-cancel {
+        background: #6c757d;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Localhost Services</h1>
+      <div class="header-actions">
+        <button class="toggle-edit-btn" id="toggle-edit-btn" onclick="toggleEditMode()">Edit</button>
+        <button class="add-btn" onclick="openModal()">+</button>
+      </div>
+    </header>
+
+    <div class="container" id="services-list">
+      <p style="text-align: center; color: #666">Loading...</p>
+    </div>
+
+    <div class="modal" id="modal">
+      <div class="modal-content">
+        <h3 id="modal-title">Add New Service</h3>
+        <input type="text" id="name" placeholder="Service Name (e.g., Web App)" />
+        <input type="text" id="port" placeholder="Port (e.g., 8080)" />
+        <input type="text" id="url" placeholder="URL (e.g., http://localhost:8080)" />
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+          <button class="btn-save" onclick="saveService()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let servicesData = [];
+      let editingId = null;
+      let isEditMode = false;
+
+      const modal = document.getElementById('modal');
+      const container = document.getElementById('services-list');
+      const toggleBtn = document.getElementById('toggle-edit-btn');
+
+      function toggleEditMode() {
+        isEditMode = !isEditMode;
+        container.classList.toggle('edit-mode', isEditMode);
+        toggleBtn.classList.toggle('active', isEditMode);
+        toggleBtn.innerText = isEditMode ? 'Done' : 'Edit';
+      }
+
+      function openModal(service = null) {
+        if (service) {
+          editingId = service.id;
+          document.getElementById('modal-title').innerText = 'Edit Service';
+          document.getElementById('name').value = service.name;
+          document.getElementById('port').value = service.port;
+          document.getElementById('url').value = service.url;
+        } else {
+          editingId = null;
+          document.getElementById('modal-title').innerText = 'Add New Service';
+          document.getElementById('name').value = '';
+          document.getElementById('port').value = '';
+          document.getElementById('url').value = '';
+        }
+        modal.style.display = 'flex';
+      }
+
+      function closeModal() {
+        modal.style.display = 'none';
+        editingId = null;
+      }
+
+      async function loadServices() {
+        const res = await fetch('/api/services');
+        servicesData = await res.json();
+
+        if (servicesData.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #666;">No services added yet.</p>';
+          return;
+        }
+
+        container.innerHTML = servicesData
+          .map(
+            item => `
+        <div class="card">
+          <div class="card-info">
+            <span class="card-name">${item.name}</span>
+            <span class="card-port">PORT: ${item.port}</span>
+          </div>
+          <div class="card-actions">
+            <a class="card-link" href="${item.url}" target="_blank">Open ↗</a>
+            <button class="btn-edit" onclick='openModal(${JSON.stringify(item)})'>Edit</button>
+            <button class="btn-delete" onclick="deleteService('${item.id}')">Delete</button>
+          </div>
+        </div>
+      `,
+          )
+          .join('');
+      }
+
+      async function saveService() {
+        const name = document.getElementById('name').value;
+        const port = document.getElementById('port').value;
+        const url = document.getElementById('url').value;
+
+        if (!name || !port || !url) return alert('Please fill in all fields.');
+
+        const payload = { name, port, url };
+
+        if (editingId) {
+          await fetch(`/api/services/${editingId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          await fetch('/api/services', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
+
+        closeModal();
+        loadServices();
+      }
+
+      async function deleteService(id) {
+        if (!confirm('Are you sure you want to delete this service?')) return;
+        await fetch(`/api/services/${id}`, { method: 'DELETE' });
+        loadServices();
+      }
+
+      loadServices();
+    </script>
+  </body>
+</html>
